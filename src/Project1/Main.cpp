@@ -357,6 +357,10 @@ void setupCube()
     setupIMatrices();
 }
 
+unsigned int framebuffer;
+unsigned int textureColorbuffer;
+bool offScreen = false;
+
 void drawIMGUI() {
     // Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
     {
@@ -371,6 +375,8 @@ void drawIMGUI() {
 
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
+
+        ImGui::Checkbox("Use Offscreen Buffer", &offScreen);
 
         static ImGuiInputTextFlags flags = ImGuiInputTextFlags_AllowTabInput;
         ImGui::InputTextMultiline("Vertex Shader", vtext, IM_ARRAYSIZE(vtext), ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 16), flags);
@@ -401,12 +407,40 @@ void drawIMGUI() {
         ImGui::InputFloat4("three", myMatrix[2]);
         ImGui::InputFloat4("four", myMatrix[3]);
 
+        if (offScreen)
+            ImGui::Image((void*)(intptr_t)textureColorbuffer, ImVec2(256, 256));
+
         ImGui::End();
 
         // IMGUI Rendering
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     }
+}
+
+void setupFrameBuffer() {
+    // framebuffer configuration
+    // -------------------------
+
+    glGenFramebuffers(1, &framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    // create a color attachment texture
+    glGenTextures(1, &textureColorbuffer);
+    glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0);
+    // create a renderbuffer object for depth and stencil attachment (we won't be sampling these)
+    unsigned int rbo;
+    glGenRenderbuffers(1, &rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, SCR_WIDTH, SCR_HEIGHT); // use a single renderbuffer object for both a depth AND stencil buffer.
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo); // now actually attach it
+    // now that we actually created the framebuffer and added all attachments we want to check if it is actually complete now
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 int main()
 {
@@ -444,6 +478,8 @@ int main()
     // Setup Platform/Renderer backends
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
+    
+    setupFrameBuffer();
 
     Shader cubeShader("data/cube.vs", "data/cube.fs");
 
@@ -477,17 +513,18 @@ int main()
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
             glfwSetWindowShouldClose(window, true);
 
+        if (offScreen)
+            glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+
         // render
         // ------
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_DEPTH_BUFFER_BIT);
 
         // glfw: poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwPollEvents();  
-
-        glClear(GL_DEPTH_BUFFER_BIT);
-        glClear(GL_COLOR_BUFFER_BIT);
 
         // draw/display the cube map "skybox"
 
@@ -555,6 +592,12 @@ int main()
                 glDrawArraysInstanced(GL_TRIANGLES, 0, 36, 1000);
         }
 
+        if (offScreen) {
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+            glClear(GL_DEPTH_BUFFER_BIT);
+        }
         drawIMGUI();
         glfwSwapBuffers(window);
     }
