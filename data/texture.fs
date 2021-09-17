@@ -9,8 +9,8 @@ in vec3 Normal;
 in vec3 FragPos;  
 in vec3 viewPos;
 
-vec3 lightPos = {0.0,0.0,8.0};
-vec3 lightColor = {1,1,1};
+vec3 lightPos = vec3(0.0,0.0,8.0);
+vec3 lightColor = vec3(1,1,1);
 vec3 objColor;
 float specularStrength = 1.5;
 

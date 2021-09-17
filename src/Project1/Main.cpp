@@ -556,6 +556,8 @@ int main()
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_CUBE_MAP, cubeTexture);
         ourShader.use();
+        ourShader.setInt("env", 1);
+        ourShader.setInt("OurTexture", 0);
                 
         // set the uniform for the current program (the way the "old" text and lecture do it)
         glUniformMatrix4fv(glGetUniformLocation(ourShader.ID, "pMat"), 1, GL_FALSE, glm::value_ptr(pMat));
